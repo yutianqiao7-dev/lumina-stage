@@ -17,6 +17,8 @@ import { UI } from './ui.js';
 import { Rng } from './util/math.js';
 import { PALETTES } from './main-consts.js';
 import { CHARACTERS } from './characters.js';
+import { RhythmGame } from './game/rhythm.js';
+import { loadDanceLibrary, composeMocap, makeIdleMocap, newFrame } from './dance/mocap.js';
 
 const BACK_POS = [[-2.5, -1.9], [2.5, -1.9], [-5.0, -3.4], [5.0, -3.4]];
 const BACK_HUES = [0.5, 0.18, 0.72, 0.35];
@@ -84,6 +86,13 @@ class App {
     this.feedOn = true;
     this.pose = neutralPose();
     this.backPose = neutralPose();
+    // 本物のダンス(AIST++)
+    this.danceMode = 'mocap';
+    try { this.danceMode = localStorage.getItem('lumina.danceMode') || 'mocap'; } catch (e) { /* */ }
+    this.danceLib = null;
+    this.mocapChoreo = null;
+    this.mocapFrame = newFrame();
+    this.backFrames = [newFrame(), newFrame(), newFrame(), newFrame()];
     this.energy = 0;
     this.idleBeat = 0;
     this.lastT = performance.now();
@@ -93,6 +102,7 @@ class App {
     this.idleChoreo = { sample: (b, out) => { copyPose(out, neutralPose()); MOVE_BY_ID.idle.fn(out, ((b % 4) + 4) % 4, { e: 0.3 }); } };
 
     this.ui = new UI(this);
+    this.game = new RhythmGame(this);
     this.updateBackDancers();
     let saved = 'default';
     try { saved = localStorage.getItem('lumina.chara') || 'default'; } catch (e) { /* */ }
@@ -106,6 +116,7 @@ class App {
 
     document.fonts && document.fonts.load(`900 64px "Zen Maru Gothic"`).then(() => clearGlyphCache()).catch(() => {});
     this.preloadDemos();
+    this.loadDances();
   }
 
   // ---------------- 曲 ----------------
@@ -165,8 +176,23 @@ class App {
     }
   }
 
+  loadDances() {
+    loadDanceLibrary().then((lib) => {
+      this.danceLib = lib;
+      this.idleMocap = makeIdleMocap(lib);
+      this.rebuildChoreo();
+    }).catch((e) => { console.warn('ダンスデータを読み込めませんでした', e); this.danceMode = 'procedural'; });
+  }
+
+  setDanceMode(m) {
+    this.danceMode = m;
+    try { localStorage.setItem('lumina.danceMode', m); } catch (e) { /* */ }
+    this.rebuildChoreo();
+  }
+
   rebuildChoreo() {
     if (!this.song) return;
+    if (this.danceLib) this.mocapChoreo = composeMocap(this.danceLib, this.song, { style: this.style, seed: this.seed });
     const lyr = this.lyrics.lines;
     this.choreo = composeChoreography(this.song, { style: this.style, seed: this.seed, hasLyrics: lyr.length > 0 });
     this.ui.onChoreo(this.choreo);
@@ -370,9 +396,40 @@ class App {
   next() { this.selectSong((this.current + 1) % this.songs.length); }
   prev() { if (this.audio.currentTime > 4) this.seek(0); else this.selectSong((this.current - 1 + this.songs.length) % this.songs.length); }
 
+  // ---------------- 音ゲー ----------------
+  async startGame(diff) {
+    if (!this.song) await this.selectSong(Math.max(0, this.current));
+    clearTimeout(this.endTimer);
+    this.audio.pause();
+    this.audio.seek(0);
+    this.lyrics.reset();
+    this.stage.lastSection = -1;
+    this.game.start(this.song, diff);
+    if (this.camMode === 'free') this.setCamMode('auto');
+    await this.audio.play();
+    this.ui.onPlayState();
+  }
+  quitGame() {
+    this.game.stop();
+    document.getElementById('gameResult').classList.add('hidden');
+  }
+  playTick(lane) {
+    const ctx = this.audio.ctx; if (!ctx) return;
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = 'triangle'; o.frequency.value = [880, 1046, 1318, 1568][lane] || 1000;
+    g.gain.setValueAtTime(0.08, ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
+    o.connect(g); g.connect(ctx.destination); o.start(); o.stop(ctx.currentTime + 0.09);
+  }
+
   onSongEnd() {
     this.stage.finale();
     this.ui.onPlayState();
+    if (this.game.active) {
+      const r = this.game.result();
+      this.game.finished = true;
+      setTimeout(() => { this.game.stop(); this.ui.showResult(r, this.song.title); }, 2500);
+      return;
+    }
     if (this.recorder) { setTimeout(() => this.stopRecording(), 4500); return; }
     if (this.ui.autoNext()) this.endTimer = setTimeout(() => this.next(), 9000);
   }
@@ -530,6 +587,16 @@ class App {
       entry = r.entry;
       if (!playing && !ended) { pose.cp += Math.sin(now / 600) * 0.01; }
     } else this.idleChoreo.sample(beat, pose);
+    // 本物のダンスを重ねる(表情は手作りの振りから)
+    const useMocap = this.danceMode === 'mocap' && this.danceLib;
+    pose.mocap = null;
+    if (useMocap) {
+      let me = null;
+      if (active && this.mocapChoreo) me = this.mocapChoreo.sample(beat, this.mocapFrame);
+      else this.idleMocap.sample(beat, this.mocapFrame);
+      pose.mocap = this.mocapFrame;
+      if (me) entry = { move: { name: this.danceLib.genres[me.clip.genre] || me.clip.genre } };
+    }
 
     // 歌っているか
     let singing = 0;
@@ -547,7 +614,15 @@ class App {
       if (active && this.choreo) this.choreo.sample(beat - 0.03 * (i + 1), this.backPose, { e: 0.6 });
       else this.idleChoreo.sample(beat + i * 0.5, this.backPose);
       const left = BACK_POS[i][0] < 0;
-      const p = this.mirrorBack && left ? mirrorPose(this.backPose) : this.backPose;
+      const mir = this.mirrorBack && left;
+      let p;
+      if (useMocap) {
+        const f = this.backFrames[i];
+        if (active && this.mocapChoreo) this.mocapChoreo.sample(beat - 0.03 * (i + 1), f, mir);
+        else this.idleMocap.sample(beat + i * 0.5, f, mir);
+        this.backPose.mocap = f;
+        p = this.backPose;
+      } else { this.backPose.mocap = null; p = mir ? mirrorPose(this.backPose) : this.backPose; }
       bd.update(dt, p, this.camera, levels, { singing: 0, lookAtCamera: false });
     }
 
@@ -595,6 +670,7 @@ class App {
     const fb = ((beat % 1) + 1) % 1;
     this.post.render(dt, { kick: Math.exp(-fb * 6) * (playing ? 1 : 0), energy: this.energy });
 
+    this.game.update(dt);
     this.ui.update(t, entry, sec);
   }
 }

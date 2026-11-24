@@ -15,6 +15,17 @@ const BONES = [
   'leftUpperLeg', 'leftLowerLeg', 'leftFoot', 'leftToes',
   'rightUpperLeg', 'rightLowerLeg', 'rightFoot', 'rightToes',
 ];
+// 指(VRMのみ)。自然に軽く曲げる
+const FINGERS = [];
+for (const s of ['left', 'right']) for (const f of ['Index', 'Middle', 'Ring', 'Little']) for (const k of ['Proximal', 'Intermediate', 'Distal']) FINGERS.push(s + f + k);
+for (const s of ['left', 'right']) for (const k of ['Metacarpal', 'Proximal', 'Distal']) FINGERS.push(s + 'Thumb' + k);
+BONES.push(...FINGERS);
+// モーションキャプチャー(SMPL 22関節)→ VRMボーン
+const MOCAP_BONES = ['hips', 'leftUpperLeg', 'rightUpperLeg', 'spine', 'leftLowerLeg', 'rightLowerLeg', 'chest', 'leftFoot', 'rightFoot',
+  'upperChest', 'leftToes', 'rightToes', 'neck', 'leftShoulder', 'rightShoulder', 'head', 'leftUpperArm', 'rightUpperArm',
+  'leftLowerArm', 'rightLowerArm', 'leftHand', 'rightHand'];
+const MOCAP_PARENT = [-1, 0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 9, 9, 12, 13, 14, 16, 17, 18, 19];
+const _mq = Array.from({ length: 22 }, () => new THREE.Quaternion());
 
 function basisQuat(xAxis, nAxis, out) {
   // xAxis, nAxis(直交)からの回転
@@ -131,6 +142,7 @@ export class Rig {
 
     this.solveLeg('left', this.legL, p.lfx, p.lfy, p.lfz, p.lfyaw, p.lfp, 1);
     this.solveLeg('right', this.legR, p.rfx, p.rfy, p.rfz, p.rfyaw, p.rfp, -1);
+    this.relaxFingers(1);
   }
 
   wrist(name, flexZ, sideY, twistX) {
@@ -207,6 +219,71 @@ export class Rig {
     if (toes) {
       _e.set(-Math.max(0, pitch) * 0.8, 0, 0, 'YXZ');
       this.setRel(side + 'Toes', _q3.setFromEuler(_e));
+    }
+  }
+
+  // 指を軽く曲げる(Tポーズのまっすぐな指はかたく見える)
+  relaxFingers(amount = 1) {
+    for (const n of FINGERS) {
+      if (!this.b[n]) continue;
+      const left = n.startsWith('left');
+      const thumb = n.includes('Thumb');
+      const k = n.endsWith('Proximal') ? 0.35 : n.endsWith('Intermediate') ? 0.45 : n.endsWith('Distal') ? 0.3 : 0.1;
+      if (thumb) _e.set(0, (left ? -0.35 : 0.35) * amount * k * 2, 0, 'YXZ');
+      else _e.set(0, 0, (left ? -1 : 1) * k * amount, 'YXZ');
+      this.setRel(n, _q1.setFromEuler(_e));
+    }
+  }
+
+  // モーションキャプチャーの1フレームを当てる。q: 22関節×(x,y,z,w) 親からの回転 / root: 腰の移動(m)
+  applyMocap(q, root, { travel = 0.75, ground = true } = {}) {
+    if (!this.ready) return;
+    const R = this.rest, b = this.b;
+    this.root.rotation.y = 0;
+    for (let j = 0; j < 22; j++) _mq[j].set(q[j * 4], q[j * 4 + 1], q[j * 4 + 2], q[j * 4 + 3]);
+    // 無いボーンの回転は、あるボーンへまとめる(例: upperChest が無ければ chest へ)
+    const eff = _mq.map((x) => x.clone());
+    for (let j = 1; j < 22; j++) {
+      if (!b[MOCAP_BONES[j]]) {
+        // 子に引き継ぐ: 子の回転 = 自分 * 子
+        for (let c = j + 1; c < 22; c++) if (MOCAP_PARENT[c] === j) eff[c].premultiply(eff[j]);
+      }
+    }
+    for (let j = 0; j < 22; j++) {
+      const name = MOCAP_BONES[j];
+      if (b[name]) this.setRel(name, eff[j]);
+    }
+    // 腰の位置: 体の大きさに合わせて縮尺
+    const scale = this.hipsY / 0.95;
+    let x = root[0] * scale * travel, z = root[2] * scale * travel;
+    const rr = Math.hypot(x, z);
+    if (rr > 0.9) { x *= 0.9 / rr; z *= 0.9 / rr; }
+    const setHips = (dy) => {
+      _v1.set(R.hips.pos.x + x, R.hips.pos.y + root[1] * scale + dy, R.hips.pos.z + z);
+      this.root.localToWorld(_v1);
+      b.hips.parent.worldToLocal(_v1);
+      b.hips.position.copy(_v1);
+    };
+    setHips(0);
+    this.relaxFingers(1);
+    this.root.updateMatrixWorld(true);
+    if (ground) {
+      // 足が床にめりこむ・浮くのを直す(大きなジャンプはそのまま)
+      let minY = Infinity;
+      for (const n of ['leftFoot', 'rightFoot']) {
+        if (!b[n]) continue;
+        const y = this.charPos(b[n], _v2).y - R[n].pos.y;
+        minY = Math.min(minY, y);
+      }
+      for (const n of ['leftToes', 'rightToes']) {
+        if (!b[n]) continue;
+        const y = this.charPos(b[n], _v2).y - R[n].pos.y;
+        minY = Math.min(minY, y);
+      }
+      if (isFinite(minY)) {
+        const dy = -minY;
+        if (dy > 0 || dy > -0.05) { setHips(dy); this.root.updateMatrixWorld(true); }
+      }
     }
   }
 

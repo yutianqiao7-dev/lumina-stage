@@ -150,7 +150,7 @@ export class Dancer {
     if (!this.rig) return;
     this.time += dt;
     // 頭を少しカメラへ向ける
-    if (lookAtCamera && camera) {
+    if (lookAtCamera && camera && !pose.mocap) {
       this.rig.getHeadWorld(_v);
       camera.getWorldPosition(_v2);
       this.turn.worldToLocal(_v2);
@@ -166,7 +166,8 @@ export class Dancer {
       this.look.y += (tp - this.look.y) * k;
       pose.headY += this.look.x; pose.headP += this.look.y;
     }
-    this.rig.apply(pose);
+    if (pose.mocap) this.rig.applyMocap(pose.mocap.q, pose.mocap.root);
+    else this.rig.apply(pose);
 
     // まばたき
     this.blinkTimer -= dt;

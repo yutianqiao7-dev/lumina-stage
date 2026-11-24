@@ -19,11 +19,12 @@
       <div class="logo"><span class="logo-a">LUMINA</span><span class="logo-b">STAGE</span></div>
       <div class="logo-sub">ルミナステージ ─ 推しが踊る、あなただけの3Dライブ</div>
       <div class="title-chara"><div class="title-chara-label">踊るキャラをえらぶ</div><div id="titleCharaGrid" class="chara-grid row"></div></div>
-      <button id="startBtn" class="big-btn"><span class="ico">▶</span> ライブをはじめる</button>
+      <div class="title-btns"><button id="startBtn" class="big-btn"><span class="ico">▶</span> ライブをはじめる</button><button id="gameStartBtn" class="big-btn game"><span class="ico">🎮</span> 音ゲーで遊ぶ</button></div>
       <ul class="title-tips">
         <li>曲をえらぶと、テンポ・構成・盛り上がりを解析して<b>振り付け・照明・カメラワークを自動で作ります</b></li>
         <li>自分の <b>VRM</b>・<b>曲(MP3など)</b>・<b>歌詞(LRC/テキスト)</b> を画面にドラッグ＆ドロップできます</li>
         <li>デモ曲3曲はこのアプリのために作ったオリジナル曲です(その場で演奏して生成)</li>
+        <li class="credit">ダンスモーション: <a href="https://google.github.io/aistplusplus_dataset/" target="_blank" rel="noopener">AIST++ Dance Motion Dataset</a>(Google LLC, CC BY 4.0)をもとに加工</li>
       </ul>
     </div>
   </div>
@@ -69,6 +70,7 @@
       <div class="spacer"></div>
       <label class="vol" title="音量"><span>🔊</span><input id="volume" type="range" min="0" max="100" value="85" aria-label="音量" /></label>
       <button id="camBtn" class="pill" title="カメラ切り替え (C)">🎥 自動</button>
+      <button id="gameBtn" class="pill" title="音ゲーモード">🎮 音ゲー</button>
       <button id="recBtn" class="pill" title="ライブを動画で保存">⏺ 録画</button>
       <button id="hideBtn" class="icon-btn" title="画面の表示を隠す (H)">◱</button>
       <button id="fsBtn" class="icon-btn" title="全画面 (F)">⛶</button>
@@ -109,6 +111,9 @@
         <label class="row"><input id="mirrorBack" type="checkbox" checked /> 左右で鏡うつしに踊る</label>
       </section>
       <section data-pane="show">
+        <h3>ダンスの種類</h3>
+        <div class="seg" id="danceSeg"><button data-v="mocap">本物のダンス</button><button data-v="procedural">手作りの振り</button></div>
+        <p class="note">本物のダンス: プロダンサーのモーションキャプチャー(AIST++、9ジャンル)を曲のテンポと構成に合わせてつなぎます。</p>
         <h3>振り付けのスタイル</h3>
         <div class="seg" id="styleSeg"></div>
         <button id="reChoreo" class="sub-btn">🎲 振り付けを作り直す</button>
@@ -170,6 +175,31 @@
       <button class="sub-btn" id="helpClose">とじる</button>
     </div>
   </div>
+
+  <!-- 音ゲー: 難易度えらび -->
+  <div id="gameMenu" class="overlay hidden">
+    <div class="help-box game-box">
+      <h2>🎮 ステージチャレンジ</h2>
+      <p class="note">いま選んでいる曲で遊びます。画面に出る的へ飛んでくるマークが、的に重なった瞬間にボタンを押してください。曲の拍と構成から譜面を自動で作るので、読み込んだ曲でも遊べます。</p>
+      <div class="keys"><span style="--c:#ff5fa8">♥ D / ←</span><span style="--c:#4fd8ff">◆ F / ↓</span><span style="--c:#ffd84a">★ J / ↑</span><span style="--c:#7dff9b">♪ K / →</span></div>
+      <p class="note">長押しマーク(外側に輪があるもの)は、輪が一周するまで押し続けます。ゲームパッドやスマホのタッチボタンでも遊べます。最後のサビは得点2倍のフィーバータイム!</p>
+      <div class="seg" id="diffSeg"><button data-v="easy">かんたん</button><button data-v="normal" class="active">ふつう</button><button data-v="hard">むずかしい</button></div>
+      <label class="row" style="margin-top:12px">タイミング調整 <input id="offsetRange" type="range" min="-200" max="200" step="10" value="0" style="flex:1" /> <span id="offsetVal">0ms</span></label>
+      <div class="title-btns"><button id="gameGo" class="big-btn game">スタート</button><button id="gameCancel" class="sub-btn" style="width:auto;padding:12px 24px">やめる</button></div>
+    </div>
+  </div>
+  <!-- 音ゲー: 結果 -->
+  <div id="gameResult" class="overlay hidden">
+    <div class="help-box game-box result">
+      <div class="res-song" id="resSong"></div>
+      <div class="res-rank" id="resRank">S</div>
+      <div class="res-clear" id="resClear"></div>
+      <div class="res-score" id="resScore"></div>
+      <table class="res-table" id="resTable"></table>
+      <div class="title-btns"><button id="resRetry" class="big-btn game">もう一度</button><button id="resBack" class="sub-btn" style="width:auto;padding:12px 24px">ライブに戻る</button></div>
+    </div>
+  </div>
+  <button id="gameQuit" class="pill game-quit">✕ 音ゲーをやめる</button>
 
   <div id="drop" class="overlay hidden"><div class="drop-box">ここにドロップ<br /><small>VRM ・ 曲 ・ 歌詞</small></div></div>
   <div id="toast"></div>

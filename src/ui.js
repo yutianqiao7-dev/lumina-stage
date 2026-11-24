@@ -55,6 +55,16 @@ export class UI {
     }
   }
 
+  showResult(r, songTitle) {
+    $('resSong').textContent = songTitle;
+    $('resRank').textContent = r.rank;
+    $('resClear').textContent = r.fullCombo ? '★ FULL COMBO ★' : r.clear ? 'CLEAR' : 'FAILED';
+    $('resClear').style.color = r.fullCombo ? '#ffd84a' : r.clear ? '#7df0ff' : '#ff6b8a';
+    $('resScore').textContent = String(r.score).padStart(7, '0');
+    $('resTable').innerHTML = `<tr><td style="color:#ffe66b">PERFECT</td><td>${r.perfect}</td></tr><tr><td style="color:#7df0ff">GREAT</td><td>${r.great}</td></tr><tr><td style="color:#b9ff8a">GOOD</td><td>${r.good}</td></tr><tr><td style="color:#ff6b8a">MISS</td><td>${r.miss}</td></tr><tr><td>MAX COMBO</td><td>${r.maxCombo}</td></tr><tr><td>正確さ</td><td>${(r.acc * 100).toFixed(1)}%</td></tr>`;
+    $('gameResult').classList.remove('hidden');
+  }
+
   onCharacter(id) {
     document.querySelectorAll('.chara-card').forEach((b) => b.classList.toggle('active', b.dataset.id === id));
   }
@@ -75,6 +85,23 @@ export class UI {
     $('volume').oninput = (e) => app.audio.setVolume(e.target.value / 100);
     $('camBtn').onclick = () => app.setCamMode(app.camMode === 'auto' ? 'free' : app.camMode === 'free' ? 'fixed' : 'auto');
     $('recBtn').onclick = () => app.toggleRecording();
+    // 音ゲー
+    this.gameDiff = 'normal';
+    const openGame = () => { $('gameMenu').classList.remove('hidden'); $('offsetRange').value = Math.round(app.game.offset * 1000); $('offsetVal').textContent = `${$('offsetRange').value}ms`; };
+    $('gameBtn').onclick = openGame;
+    $('gameStartBtn').onclick = async () => {
+      $('title').classList.add('fade'); setTimeout(() => $('title').classList.add('hidden'), 800);
+      app.audio.ensure(); await app.audio.ctx.resume(); app.started = true;
+      if (!app.song) { await app.selectSong(0); app.audio.pause(); app.ui.onPlayState(); }
+      openGame();
+    };
+    $('diffSeg').querySelectorAll('button').forEach((b) => b.onclick = () => { $('diffSeg').querySelectorAll('button').forEach((x) => x.classList.toggle('active', x === b)); this.gameDiff = b.dataset.v; });
+    $('offsetRange').oninput = (e) => { $('offsetVal').textContent = `${e.target.value}ms`; app.game.setOffset(parseInt(e.target.value)); };
+    $('gameGo').onclick = () => { $('gameMenu').classList.add('hidden'); app.startGame(this.gameDiff); };
+    $('gameCancel').onclick = () => $('gameMenu').classList.add('hidden');
+    $('gameQuit').onclick = () => app.quitGame();
+    $('resRetry').onclick = () => { $('gameResult').classList.add('hidden'); app.startGame(this.gameDiff); };
+    $('resBack').onclick = () => { $('gameResult').classList.add('hidden'); };
     $('hideBtn').onclick = () => this.toggleUI();
     $('fsBtn').onclick = () => this.fullscreen();
     $('panelBtn').onclick = () => $('panel').classList.toggle('closed');
@@ -104,6 +131,7 @@ export class UI {
     window.addEventListener('keydown', (e) => {
       if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT' && e.target.type !== 'range' && e.target.type !== 'checkbox') return;
       const k = e.key.toLowerCase();
+      if (document.body.classList.contains('game-mode')) { if (k === 'escape') app.quitGame(); return; }
       if (k === ' ') { e.preventDefault(); app.togglePlay(); }
       else if (k === 'arrowright') app.seek(app.audio.currentTime + 5);
       else if (k === 'arrowleft') app.seek(app.audio.currentTime - 5);
@@ -167,6 +195,8 @@ export class UI {
     $('backCount').querySelectorAll('button').forEach((b) => b.classList.toggle('active', parseInt(b.dataset.v) === app.backCount));
     wire('backCount', (v) => { app.setBackCount(parseInt(v)); this.renderBackSlots(); });
     this.renderBackSlots();
+    $('danceSeg').querySelectorAll('button').forEach((b) => b.classList.toggle('active', b.dataset.v === app.danceMode));
+    wire('danceSeg', (v) => app.setDanceMode(v));
     wire('camSeg', (v) => app.setCamMode(v));
     wire('lyricMode', (v) => { app.lyricMode = v; });
     wire('qualitySeg', (v) => { app.manualQuality = true; app.setQuality(v); });
