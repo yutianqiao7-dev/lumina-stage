@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>ルミナステージ</title>
+  <meta name="description" content="好きなVRMキャラクターが、曲に合わせて自動で踊る3Dライブビューアー" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700;900&family=Montserrat:wght@600;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./src/style.css" />
+</head>
+<body>
+  <canvas id="view"></canvas>
+
+  <!-- タイトル画面 -->
+  <div id="title" class="overlay">
+    <div class="title-inner">
+      <div class="logo"><span class="logo-a">LUMINA</span><span class="logo-b">STAGE</span></div>
+      <div class="logo-sub">ルミナステージ ─ 推しが踊る、あなただけの3Dライブ</div>
+      <div class="title-chara"><div class="title-chara-label">踊るキャラをえらぶ</div><div id="titleCharaGrid" class="chara-grid row"></div></div>
+      <button id="startBtn" class="big-btn"><span class="ico">▶</span> ライブをはじめる</button>
+      <ul class="title-tips">
+        <li>曲をえらぶと、テンポ・構成・盛り上がりを解析して<b>振り付け・照明・カメラワークを自動で作ります</b></li>
+        <li>自分の <b>VRM</b>・<b>曲(MP3など)</b>・<b>歌詞(LRC/テキスト)</b> を画面にドラッグ＆ドロップできます</li>
+        <li>デモ曲3曲はこのアプリのために作ったオリジナル曲です(その場で演奏して生成)</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- 読み込み中 -->
+  <div id="loading" class="overlay hidden">
+    <div class="loading-box">
+      <div class="spinner"></div>
+      <div id="loadingText">準備しています…</div>
+      <div class="bar"><div id="loadingBar"></div></div>
+    </div>
+  </div>
+
+  <!-- 上部: 再生中の曲 -->
+  <div id="hud" class="ui">
+    <div class="now">
+      <div class="brand">LUMINA STAGE</div>
+      <div id="songTitle" class="song-title">─</div>
+      <div class="song-meta"><span id="songArtist"></span><span id="songBpm"></span></div>
+      <div class="badges"><span id="sectionBadge" class="badge">待機中</span><span id="shotBadge" class="badge ghost"></span><span id="styleBadge" class="badge ghost"></span></div>
+    </div>
+    <div class="top-right">
+      <span id="fps" class="fps"></span>
+      <button id="helpBtn" class="icon-btn" title="操作方法 (?)">?</button>
+      <button id="panelBtn" class="icon-btn" title="設定パネル">☰</button>
+    </div>
+  </div>
+
+  <!-- 字幕の歌詞 -->
+  <div id="subtitle" class="ui"><div id="subLine"></div></div>
+
+  <!-- 下部: プレイヤー -->
+  <div id="player" class="ui">
+    <div class="seek-wrap">
+      <div id="sections" class="sections"></div>
+      <input id="seek" type="range" min="0" max="1000" value="0" step="1" aria-label="再生位置" />
+    </div>
+    <div class="controls">
+      <button id="prevBtn" class="icon-btn" title="前の曲">⏮</button>
+      <button id="playBtn" class="icon-btn play" title="再生/一時停止 (スペース)">▶</button>
+      <button id="nextBtn" class="icon-btn" title="次の曲">⏭</button>
+      <span id="time" class="time">0:00 / 0:00</span>
+      <div class="spacer"></div>
+      <label class="vol" title="音量"><span>🔊</span><input id="volume" type="range" min="0" max="100" value="85" aria-label="音量" /></label>
+      <button id="camBtn" class="pill" title="カメラ切り替え (C)">🎥 自動</button>
+      <button id="recBtn" class="pill" title="ライブを動画で保存">⏺ 録画</button>
+      <button id="hideBtn" class="icon-btn" title="画面の表示を隠す (H)">◱</button>
+      <button id="fsBtn" class="icon-btn" title="全画面 (F)">⛶</button>
+    </div>
+  </div>
+
+  <!-- 設定パネル -->
+  <aside id="panel" class="ui closed">
+    <div class="tabs">
+      <button data-tab="songs" class="active">曲</button>
+      <button data-tab="chara">キャラ</button>
+      <button data-tab="show">演出</button>
+      <button data-tab="camera">カメラ</button>
+      <button data-tab="lyrics">歌詞</button>
+      <button data-tab="quality">画質</button>
+    </div>
+    <div class="tab-body">
+      <section data-pane="songs" class="active">
+        <h3>曲リスト</h3>
+        <div id="songList" class="list"></div>
+        <label class="file-btn">🎵 曲ファイルを読み込む<input id="audioFile" type="file" accept="audio/*,.mp3,.wav,.ogg,.m4a,.flac" multiple hidden /></label>
+        <p class="note">MP3などを読み込むと、テンポ・拍・曲の構成(Aメロ/サビなど)・盛り上がりを自動で解析して、振り付けと演出を作ります。Sunoで作った曲もそのまま使えます。</p>
+        <label class="row"><input id="autoNext" type="checkbox" checked /> 曲が終わったら次の曲へ</label>
+        <div id="analysis" class="analysis"></div>
+      </section>
+      <section data-pane="chara">
+        <h3>キャラをえらぶ</h3>
+        <div id="charaName" class="chara-name">標準キャラ</div>
+        <div id="charaGrid" class="chara-grid"></div>
+        <label class="file-btn">🧍 自分のVRMを読み込む<input id="vrmFile" type="file" accept=".vrm" hidden /></label>
+        <p class="note">VRoid Studio・きゃらくる などで作った VRM(0.x / 1.0)が使えます。用意したキャラは pixiv 公式のサンプル(VRoid Studio の CC0 モデルなど)で、再配布・改変・商用利用OK・クレジット不要です。読み込んだファイルはこのパソコンの中だけで使われ、どこにも送信されません。</p>
+        <h3>バックダンサー</h3>
+        <div class="seg" id="backCount">
+          <button data-v="0">なし</button><button data-v="2" class="active">2人</button><button data-v="4">4人</button>
+        </div>
+        <div id="backSlots" class="back-slots"></div>
+        <p class="note">「メインの色違い」は髪や服の色だけを変えます(肌の色は残します)。好きなキャラを1人ずつ選ぶこともできます。</p>
+        <label class="row"><input id="mirrorBack" type="checkbox" checked /> 左右で鏡うつしに踊る</label>
+      </section>
+      <section data-pane="show">
+        <h3>振り付けのスタイル</h3>
+        <div class="seg" id="styleSeg"></div>
+        <button id="reChoreo" class="sub-btn">🎲 振り付けを作り直す</button>
+        <h3>照明のテーマカラー</h3>
+        <div class="seg wrap" id="paletteSeg"></div>
+        <h3>特効</h3>
+        <label class="row"><input id="optCrowd" type="checkbox" checked /> 観客とペンライト</label>
+        <label class="row"><input id="optLaser" type="checkbox" checked /> レーザー</label>
+        <label class="row"><input id="optSmoke" type="checkbox" checked /> スモーク・火花・紙吹雪</label>
+        <label class="row"><input id="optFeed" type="checkbox" checked /> スクリーンにライブ映像を映す</label>
+        <button id="confettiBtn" class="sub-btn">🎉 紙吹雪を飛ばす</button>
+      </section>
+      <section data-pane="camera">
+        <h3>カメラ</h3>
+        <div class="seg" id="camSeg">
+          <button data-v="auto" class="active">自動</button><button data-v="free">自由</button><button data-v="fixed">ショット固定</button>
+        </div>
+        <p class="note">自由: ドラッグで回転、ホイールでズーム、右ドラッグで移動。</p>
+        <h3>カットの速さ</h3>
+        <input id="cutRate" type="range" min="50" max="200" value="100" />
+        <h3>ショットを選ぶ</h3>
+        <div class="seg wrap" id="shotSeg"></div>
+      </section>
+      <section data-pane="lyrics">
+        <h3>歌詞の表示</h3>
+        <div class="seg" id="lyricMode">
+          <button data-v="3d" class="active">立体</button><button data-v="sub">字幕</button><button data-v="both">両方</button><button data-v="off">なし</button>
+        </div>
+        <label class="file-btn">📝 歌詞ファイルを読み込む<input id="lyricFile" type="file" accept=".lrc,.txt" hidden /></label>
+        <p class="note"><b>LRC形式</b>([00:12.34]歌詞)なら時刻どおりに表示します。<b>ふつうのテキスト</b>なら、解析した曲の構成に合わせて2小節ずつ自動で割りふります。</p>
+        <textarea id="lyricText" rows="7" placeholder="ここに歌詞を貼りつけて「反映」でもOK"></textarea>
+        <button id="lyricApply" class="sub-btn">反映</button>
+      </section>
+      <section data-pane="quality">
+        <h3>画質</h3>
+        <div class="seg" id="qualitySeg">
+          <button data-v="high">高</button><button data-v="medium">中</button><button data-v="low">低</button>
+        </div>
+        <p class="note">カクカクするときは「中」か「低」に。高: 床の反射・影・観客1700人・4倍アンチエイリアス。</p>
+        <label class="row"><input id="optFps" type="checkbox" /> FPSを表示</label>
+      </section>
+    </div>
+  </aside>
+
+  <div id="help" class="overlay hidden">
+    <div class="help-box">
+      <h2>操作方法</h2>
+      <table>
+        <tr><td><kbd>スペース</kbd></td><td>再生 / 一時停止</td></tr>
+        <tr><td><kbd>←</kbd> <kbd>→</kbd></td><td>5秒もどる / すすむ</td></tr>
+        <tr><td><kbd>N</kbd> <kbd>P</kbd></td><td>次の曲 / 前の曲</td></tr>
+        <tr><td><kbd>C</kbd></td><td>カメラ(自動 → 自由 → 固定)</td></tr>
+        <tr><td><kbd>1</kbd>〜<kbd>9</kbd></td><td>ショットを選ぶ</td></tr>
+        <tr><td><kbd>R</kbd></td><td>振り付けを作り直す</td></tr>
+        <tr><td><kbd>H</kbd></td><td>画面の表示を隠す / 出す</td></tr>
+        <tr><td><kbd>F</kbd></td><td>全画面</td></tr>
+      </table>
+      <p>ファイルは画面にドラッグ＆ドロップでも読み込めます(.vrm / 曲 / .lrc .txt)。</p>
+      <button class="sub-btn" id="helpClose">とじる</button>
+    </div>
+  </div>
+
+  <div id="drop" class="overlay hidden"><div class="drop-box">ここにドロップ<br /><small>VRM ・ 曲 ・ 歌詞</small></div></div>
+  <div id="toast"></div>
+
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
