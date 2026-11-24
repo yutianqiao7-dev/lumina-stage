@@ -1,5 +1,7 @@
 # ルミナステージ(LUMINA STAGE)
 
+**公開中: https://yutianqiao7-dev.github.io/lumina-stage/**(ブラウザで開くだけで遊べます)
+
 好きなVRMキャラクターが、曲に合わせて自動で踊る **3Dライブビューアー** です。
 ASCII.jp の記事(百夜ステージ)と同じ種類のアプリを、**完全無料**(ブラウザだけで動き、サーバー代も有料サービスも不要)で作りました。
 
@@ -52,7 +54,8 @@ npm run build
 `dist` フォルダの中身が、そのまま公開できる完成品です(相対パスで作ってあるので、どこに置いても動きます)。
 
 - **itch.io**: `dist` の中身をZIPにして、新規プロジェクトの「Kind of project: HTML」でアップロード →「This file will be played in the browser」にチェック
-- **GitHub Pages / Netlify / Cloudflare Pages**: `dist` をそのまま公開
+- **GitHub Pages**: このリポジトリは `main` に送る(push)たびに GitHub Actions が自動でビルドして公開します(`.github/workflows/deploy.yml`)
+- **Netlify / Cloudflare Pages**: `dist` をそのまま公開
 
 ## 構成(src)
 
