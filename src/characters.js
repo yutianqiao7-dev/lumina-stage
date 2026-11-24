@@ -3,6 +3,7 @@
 // それ以外: VRoid Studio 旧ベータ版の CC0 サンプルモデル(pixiv / VRoidプロジェクト)
 export const CHARACTERS = [
   { id: 'tame', name: 'ため', sub: 'オリジナル', file: 'my_model.vrm' },
+  { id: 'alice', name: 'アリス', sub: 'オリジナル', file: 'alice.vrm' },
   { id: 'default', name: '標準キャラ', sub: 'pixiv サンプル', file: 'default.vrm' },
   { id: 'shibu', name: '千駄ヶ谷 渋', sub: 'VRoid サンプル', file: 'vroid_d.vrm', thumb: 'vroid_d.jpg' },
   { id: 'shibu_dark', name: '渋(ダーク)', sub: 'VRoid サンプル', file: 'vroid_d_dark.vrm', thumb: 'vroid_d_dark.jpg' },

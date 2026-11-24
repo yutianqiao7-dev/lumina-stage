@@ -79,6 +79,7 @@ npm run build
 - 使うVRMや曲を公開する場合は、それぞれの利用条件(VRMのライセンス、Sunoなどの規約)を確認してください。
 
 ## 同梱キャラのライセンス
+- `public/models/alice.vrm`(アリス): ユーザー自作の VRoid モデル。再配布・改変・商用利用を許可して書き出し済み
 - `public/models/my_model.vrm`(ため): ユーザー自作の VRoid モデル。再配布・改変・商用利用を許可して書き出し済み
 - `public/models/default.vrm`: pixiv Inc. の VRM 1.0 サンプル(VRM Public License 1.0。再配布・改変・商用OK、クレジット不要)
 - `public/models/vroid_*.vrm`, `shino.vrm`, `sakurada.vrm`: VRoid Studio 旧ベータ版のサンプルモデル。pixiv 公式ヘルプで **CC0**(著作権放棄)と明記されています → https://vroid.pixiv.help/hc/ja/articles/4402614652569
