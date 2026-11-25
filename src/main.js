@@ -24,6 +24,8 @@ const BACK_POS = [[-2.5, -1.9], [2.5, -1.9], [-5.0, -3.4], [5.0, -3.4]];
 const BACK_HUES = [0.5, 0.18, 0.72, 0.35];
 const ACCENTS = [['#ff4fa3', '#4fe3ff'], ['#4fb8ff', '#ffe14f'], ['#b36bff', '#7dffb5'], ['#ff9b3f', '#ff4fd8'], ['#42ffd0', '#ff6b6b']];
 
+export const IS_MOBILE = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && Math.min(screen.width, screen.height) < 900);
+
 class App {
   constructor() {
     this.canvas = document.getElementById('view');
@@ -34,14 +36,15 @@ class App {
     this.renderer.toneMappingExposure = 0.92;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.shadowMap.type = THREE.PCFShadowMap;
+    this.renderer.shadowMap.autoUpdate = false; // 影は1フレームに1回だけ計算する
 
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.05, 300);
     this.camera.position.set(0, 5, 22);
     this.feedCam = new THREE.PerspectiveCamera(30, 16 / 9, 0.05, 200);
     this.feedCam.position.set(0, 2.5, 4);
-    this.feedRT = new THREE.WebGLRenderTarget(960, 540, { type: THREE.HalfFloatType, samples: 2 });
+    this.feedRT = new THREE.WebGLRenderTarget(640, 360, { type: THREE.HalfFloatType, samples: 0 });
     this.feedRT.texture.colorSpace = THREE.LinearSRGBColorSpace;
 
     this.stage = new Stage(this.scene, this.renderer);
@@ -67,7 +70,7 @@ class App {
     this.backChoices = ['auto', 'auto', 'auto', 'auto'];
     try {
       const bc = JSON.parse(localStorage.getItem('lumina.backs') || 'null'); if (Array.isArray(bc)) this.backChoices = bc.concat(['auto', 'auto', 'auto', 'auto']).slice(0, 4);
-      const n = parseInt(localStorage.getItem('lumina.backCount')); if ([0, 2, 4].includes(n)) this.backCount = n;
+      const n = parseInt(localStorage.getItem('lumina.backCount')); if ([0, 2, 4].includes(n)) this.backCount = n; else if (IS_MOBILE) this.backCount = 0;
     } catch (e) { /* */ }
     this.mirrorBack = true;
     this.vrmBuffer = null;
@@ -107,7 +110,10 @@ class App {
     let saved = 'default';
     try { saved = localStorage.getItem('lumina.chara') || 'default'; } catch (e) { /* */ }
     this.selectCharacter(saved, false);
-    this.setQuality(window.devicePixelRatio > 1.5 && window.innerWidth < 900 ? 'medium' : 'high');
+    let savedQ = null;
+    try { savedQ = localStorage.getItem('lumina.quality'); } catch (e) { /* */ }
+    if (savedQ) this.manualQuality = true;
+    this.setQuality(savedQ || this.autoQuality());
     window.addEventListener('resize', () => this.onResize());
     this.stage.setPalette(DEMO_SONGS[0].palette.hues);
     this.stage.setWallText(this.makeTitleTexture('LUMINA STAGE', 'ルミナステージ'));
@@ -145,7 +151,8 @@ class App {
   }
 
   preloadDemos() {
-    const demos = this.songs.filter((s) => s.kind === 'demo');
+    let demos = this.songs.filter((s) => s.kind === 'demo');
+    if (IS_MOBILE) demos = demos.slice(0, 1); // スマホは最初の1曲だけ先に作る
     demos.reduce((p, s) => p.then(() => this.prepare(s, true)).catch(() => {}), Promise.resolve());
   }
 
@@ -177,7 +184,8 @@ class App {
   }
 
   loadDances() {
-    loadDanceLibrary().then((lib) => {
+    // スマホは軽量版(約5MB・79本)、パソコンは全部(約22MB・300本以上)
+    loadDanceLibrary('./dances/', IS_MOBILE ? 'aist_lite' : 'aist').then((lib) => {
       this.danceLib = lib;
       this.idleMocap = makeIdleMocap(lib);
       this.rebuildChoreo();
@@ -486,15 +494,31 @@ class App {
   }
   pickShot(name) { this.camMode = 'fixed'; this.controls.enabled = false; this.director.forceShot(name); this.ui.onCamMode(); }
 
+  // 端末に合わせた最初の画質: スマホ=低、内蔵GPU=中、専用GPU=高
+  autoQuality() {
+    if (IS_MOBILE) return 'low';
+    let gpu = '';
+    try {
+      const gl = this.renderer.getContext();
+      const ext = gl.getExtension('WEBGL_debug_renderer_info');
+      gpu = ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER);
+    } catch (e) { /* */ }
+    if (/RTX|GTX|Radeon RX|Radeon Pro|Arc A|Apple M[1-9]/i.test(gpu)) return 'high';
+    return 'medium';
+  }
+
   setQuality(q) {
     this.quality = q;
-    const pr = q === 'high' ? Math.min(window.devicePixelRatio, 2) : q === 'medium' ? Math.min(window.devicePixelRatio, 1.25) : 1;
+    const dpr = window.devicePixelRatio || 1;
+    const pr = q === 'high' ? Math.min(dpr, 1.75) : q === 'medium' ? Math.min(dpr, 1.0) : Math.min(dpr, IS_MOBILE ? 0.75 : 0.85);
     this.renderer.setPixelRatio(pr);
     this.renderer.setSize(window.innerWidth, window.innerHeight);
+    this.post.setQuality(q);
     this.post.setPixelRatio(pr);
     this.post.setSize(window.innerWidth, window.innerHeight);
     this.renderer.shadowMap.enabled = q !== 'low';
     this.stage.setQuality(q);
+    this.lyrics.lite = q === 'low';
     this.ui.onQuality();
   }
 
@@ -550,7 +574,7 @@ class App {
       // 重いときは自動で画質を下げる(再生中・画面表示中のみ)
       if (this.audio.playing && !document.hidden && !this.manualQuality) {
         this.slowCount = fps < 38 ? (this.slowCount || 0) + 1 : 0;
-        if (this.slowCount >= 8 && this.quality !== 'low') {
+        if (this.slowCount >= 6 && this.quality !== 'low') {
           this.slowCount = 0;
           this.setQuality(this.quality === 'high' ? 'medium' : 'low');
           this.ui.toast(`動きをなめらかにするため画質を「${this.quality === 'medium' ? '中' : '低'}」にしました(設定パネルで変更できます)`);
@@ -657,14 +681,21 @@ class App {
 
     // ---- 描画 ----
     this._feedTick = (this._feedTick || 0) + 1;
-    if (this.feedOn && (this.quality === 'high' || this._feedTick % 2 === 0)) {
-      const rv = this.stage.reflector.visible;
+    this.renderer.shadowMap.needsUpdate = true;
+    // スクリーン用のライブ映像: 高=2フレームに1回、中=3フレームに1回、低=なし
+    const feedEvery = this.quality === 'high' ? 2 : this.quality === 'medium' ? 3 : 0;
+    if (this.feedOn && feedEvery && this._feedTick % feedEvery === 0) {
+      const rv = this.stage.reflector.visible, cv = this.stage.crowd.group.visible, hv = this.stage.haze.points.visible;
       this.stage.reflector.visible = false;
+      this.stage.crowd.group.visible = false;
+      this.stage.haze.points.visible = false;
       this.lyrics.group.visible = false;
       this.renderer.setRenderTarget(this.feedRT);
       this.renderer.render(this.scene, this.feedCam);
       this.renderer.setRenderTarget(null);
       this.stage.reflector.visible = rv;
+      this.stage.crowd.group.visible = cv;
+      this.stage.haze.points.visible = hv;
       this.lyrics.group.visible = true;
     }
     const fb = ((beat % 1) + 1) % 1;

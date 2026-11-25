@@ -25,12 +25,14 @@ export async function loadVRMFromBuffer(arrayBuffer) {
 
 // 色違い(記事のバックダンサー): 彩度の高い部分だけ色相を回す。肌の色は残す
 function hueShiftImage(image, shift) {
-  const w = image.width, h = image.height;
+  // 色変えの計算は大きくても1024pxに縮めて行う(読み込みを速く・メモリを少なく)
+  const k = Math.min(1, 1024 / Math.max(image.width || 1, image.height || 1));
+  const w = Math.round(image.width * k), h = Math.round(image.height * k);
   if (!w || !h) return null;
   const cv = document.createElement('canvas');
   cv.width = w; cv.height = h;
   const g = cv.getContext('2d', { willReadFrequently: true });
-  g.drawImage(image, 0, 0);
+  g.drawImage(image, 0, 0, w, h);
   const id = g.getImageData(0, 0, w, h);
   const d = id.data;
   for (let i = 0; i < d.length; i += 4) {

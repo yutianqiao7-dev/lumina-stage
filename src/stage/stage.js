@@ -113,7 +113,7 @@ class MovingHead {
     this.mat.uniforms.uColor.value.copy(color);
     this.mat.uniforms.uIntensity.value = intensity;
     this.lensMat.color.copy(color).multiplyScalar(0.5 + intensity * 3);
-    this.beam.visible = intensity > 0.01;
+    this.beam.visible = intensity > 0.01 && this.beamAllowed !== false;
   }
 }
 
@@ -301,13 +301,21 @@ export class Stage {
 
   setQuality(q) {
     this.quality = q;
-    this.reflector.visible = q !== 'low';
+    this.reflector.visible = q === 'high';
     this.key.castShadow = q !== 'low';
+    const sm = q === 'high' ? 2048 : 1024;
+    if (this.key.shadow.mapSize.x !== sm) {
+      this.key.shadow.mapSize.set(sm, sm);
+      if (this.key.shadow.map) { this.key.shadow.map.dispose(); this.key.shadow.map = null; }
+    }
     const n = this.crowd.count;
-    const cn = q === 'high' ? n : q === 'medium' ? Math.floor(n * 0.6) : Math.floor(n * 0.3);
+    const cn = q === 'high' ? n : q === 'medium' ? Math.floor(n * 0.55) : Math.floor(n * 0.22);
     this.crowd.bodies.count = cn; this.crowd.sticks.count = cn;
-    this.haze.points.geometry.setDrawRange(0, q === 'low' ? 600 : 2600);
+    this.haze.points.geometry.setDrawRange(0, q === 'high' ? 2600 : q === 'medium' ? 1200 : 400);
     this.smoke.group.visible = q !== 'low';
+    // 軽量: 奥と床のライトは光線を出さない(本体のランプは光る)
+    for (const h of this.heads) h.beamAllowed = q === 'high' || (q === 'medium' ? h.row !== 'floor' : h.row === 'front');
+    this.sparks.maxEmit = q === 'low' ? 0.35 : 1;
   }
 
   setPalette(hues) {

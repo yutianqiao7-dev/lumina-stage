@@ -38,7 +38,7 @@ export function makeBeamMaterial() {
         float f = abs(dot(normalize(vN), normalize(vV)));
         float core = pow(f, 2.6);
         float fade = pow(1.0 - vAlong, 1.4) * smoothstep(0.0, 0.04, vAlong);
-        float dust = 0.65 + 0.35 * fbm(vWorld.xz * 0.5 + vWorld.y * 0.3 + uTime * 0.15);
+        float dust = 0.78 + 0.22 * sin(vWorld.y * 2.3 + vWorld.x * 1.7 + uTime * 0.6) * sin(vWorld.z * 1.9 - uTime * 0.4);
         float a = core * fade * dust * uIntensity;
         gl_FragColor = vec4(uColor * a, 1.0);
       }`,
@@ -145,9 +145,10 @@ export function makeLEDWallMaterial({ res = new THREE.Vector2(256, 112), aspect 
         vec2 cellUv = (floor(grid) + 0.5) / uRes;
         vec2 l = fract(grid) - 0.5;
         float dotm = smoothstep(0.5, 0.28, length(l));
-        vec3 a = modeColor(uModeA, cellUv);
-        vec3 b = modeColor(uModeB, cellUv);
-        vec3 col = mix(a, b, uMix);
+        vec3 col;
+        if (uMix >= 0.999) col = modeColor(uModeB, cellUv);
+        else if (uMix <= 0.001) col = modeColor(uModeA, cellUv);
+        else col = mix(modeColor(uModeA, cellUv), modeColor(uModeB, cellUv), uMix);
         // ライブカメラ映像
         vec2 fr = vec2(0.5, 0.5);
         float fw = mix(0.5, 1.0, uFeedFull);

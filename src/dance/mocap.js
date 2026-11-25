@@ -12,12 +12,12 @@ export const MOCAP_STYLES = {
 };
 
 let libPromise = null;
-export function loadDanceLibrary(base = './dances/') {
+export function loadDanceLibrary(base = './dances/', name = 'aist') {
   if (libPromise) return libPromise;
   libPromise = (async () => {
     const [meta, bin] = await Promise.all([
-      fetch(base + 'aist.json').then((r) => { if (!r.ok) throw new Error('aist.json ' + r.status); return r.json(); }),
-      fetch(base + 'aist.bin').then((r) => { if (!r.ok) throw new Error('aist.bin ' + r.status); return r.arrayBuffer(); }),
+      fetch(base + name + '.json').then((r) => { if (!r.ok) throw new Error('aist.json ' + r.status); return r.json(); }),
+      fetch(base + name + '.bin').then((r) => { if (!r.ok) throw new Error('aist.bin ' + r.status); return r.arrayBuffer(); }),
     ]);
     const clips = [];
     for (const c of meta.clips) {

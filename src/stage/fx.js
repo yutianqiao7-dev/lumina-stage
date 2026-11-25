@@ -55,6 +55,7 @@ export class Sparks {
     this.emitters.push({ x, y, z, t: 0, duration, color, power, acc: 0 });
   }
   burst(x, y, z, n = 200, color = new THREE.Color('#fff2c0'), speed = 6) {
+    this.aliveUntil = performance.now() + 3000;
     for (let k = 0; k < n; k++) {
       const th = Math.random() * Math.PI * 2, ph = Math.acos(2 * Math.random() - 1);
       const v = speed * (0.4 + Math.random() * 0.6);
@@ -69,9 +70,11 @@ export class Sparks {
     this.col[i * 3] = color.r; this.col[i * 3 + 1] = color.g; this.col[i * 3 + 2] = color.b;
   }
   update(dt) {
+    if (!this.emitters.length && !(this.aliveUntil > performance.now())) return;
+    this.aliveUntil = Math.max(this.aliveUntil || 0, performance.now() + 2500);
     for (const e of this.emitters) {
       e.t += dt;
-      e.acc += dt * 700 * e.power;
+      e.acc += dt * 700 * e.power * (this.maxEmit ?? 1);
       while (e.acc > 1) {
         e.acc -= 1;
         const a = Math.random() * Math.PI * 2, r = Math.random() * 0.5;

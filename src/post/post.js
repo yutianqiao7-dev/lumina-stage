@@ -58,9 +58,23 @@ export class Post {
     this.enabled = true;
   }
   setCamera(camera) { this.renderPass.camera = camera; }
-  setSize(w, h) { this.composer.setSize(w, h); this.bloom.setSize(w, h); }
+  setSize(w, h) {
+    this.composer.setSize(w, h);
+    // 中・低はブルームを半分の解像度で(見た目はほぼ同じで軽い)
+    const k = this.quality === 'high' ? 1 : 0.5;
+    this.bloom.setSize(Math.round(w * k), Math.round(h * k));
+  }
+  setQuality(q) {
+    this.quality = q;
+    this.enabled = q !== 'low';
+    const samples = q === 'high' ? 4 : 0;
+    for (const rt of [this.composer.renderTarget1, this.composer.renderTarget2]) {
+      if (rt.samples !== samples) { rt.samples = samples; rt.dispose(); }
+    }
+  }
   setPixelRatio(pr) { this.composer.setPixelRatio(pr); }
   render(dt, { kick = 0, energy = 0, fade = 0 } = {}) {
+    if (!this.enabled) { this.renderer.setRenderTarget(null); this.renderer.render(this.renderPass.scene, this.renderPass.camera); return; }
     const f = this.finish.uniforms;
     f.uTime.value += dt;
     f.uAberration.value = 0.0012 + kick * 0.004 * (energy / 3);

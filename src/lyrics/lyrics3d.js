@@ -176,8 +176,12 @@ export class Lyrics3D {
       if (this.active.size) { for (const o of this.active.values()) { this.group.remove(o.group); o.dispose(); } this.active.clear(); }
       return;
     }
-    // 出す行
-    this.lines.forEach((line, i) => {
+    // 出す行(今の時刻の近くだけ調べる)
+    const L = this.lines;
+    if (this._ptr == null || this._ptr >= L.length || (L[this._ptr] && L[this._ptr].time > t + 2)) this._ptr = 0;
+    while (this._ptr < L.length - 1 && L[this._ptr].end + 1.5 < t) this._ptr++;
+    for (let i = this._ptr; i < L.length && L[i].time - 0.6 <= t; i++) {
+      const line = L[i];
       const key = i;
       const inWin = t >= line.time - 0.6 && t <= line.end + 1.2;
       if (inWin && !this.active.has(key)) {
@@ -185,11 +189,11 @@ export class Lyrics3D {
         const style = this.styleFor(i, line, e);
         const side = i % 2 ? 1 : -1;
         const objs = [new LyricLine(line, i, style, H, palette, 0)];
-        if (style !== 'big' && style !== 'floor') objs.push(new LyricLine(line, i, style, H, palette, 1));
+        if (style !== 'big' && style !== 'floor' && !this.lite) objs.push(new LyricLine(line, i, style, H, palette, 1));
         for (const o of objs) { o.place(H, dancer, side); this.group.add(o.group); }
         this.active.set(key, { objs, group: null, dispose() { for (const o of objs) { o.dispose(); } } });
       }
-    });
+    }
     for (const [key, entry] of this.active) {
       const line = this.lines[key];
       let alive = false;

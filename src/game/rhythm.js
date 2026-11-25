@@ -142,7 +142,7 @@ export class RhythmGame {
   }
 
   resize() {
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const dpr = Math.min(window.devicePixelRatio || 1, (navigator.maxTouchPoints > 1 && Math.min(screen.width, screen.height) < 900) ? 1.25 : 2);
     this.w = window.innerWidth; this.h = window.innerHeight;
     this.canvas.width = this.w * dpr; this.canvas.height = this.h * dpr;
     this.g.setTransform(dpr, 0, 0, dpr, 0, 0);

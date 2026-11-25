@@ -34,7 +34,7 @@ export class Crowd {
     const phase = new Float32Array(n);
     for (let i = 0; i < n; i++) phase[i] = rng();
     geo.setAttribute('aPhase', new THREE.InstancedBufferAttribute(phase, 1));
-    const mat = new THREE.MeshStandardMaterial({ color: '#0c0b12', roughness: 0.9, metalness: 0.0 });
+    const mat = new THREE.MeshBasicMaterial({ color: '#0e0c16' });
     mat.onBeforeCompile = (sh) => {
       Object.assign(sh.uniforms, this.uniforms);
       sh.vertexShader = sh.vertexShader

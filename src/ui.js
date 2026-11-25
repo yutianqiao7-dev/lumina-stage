@@ -199,7 +199,7 @@ export class UI {
     wire('danceSeg', (v) => app.setDanceMode(v));
     wire('camSeg', (v) => app.setCamMode(v));
     wire('lyricMode', (v) => { app.lyricMode = v; });
-    wire('qualitySeg', (v) => { app.manualQuality = true; app.setQuality(v); });
+    wire('qualitySeg', (v) => { app.manualQuality = true; try { localStorage.setItem('lumina.quality', v); } catch (e) { /* */ } app.setQuality(v); });
   }
 
   renderSongList() {
