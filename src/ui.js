@@ -65,6 +65,19 @@ export class UI {
     $('gameResult').classList.remove('hidden');
   }
 
+  recShowLive(src) {
+    $('recStep1').classList.add('hidden'); $('recStep2').classList.remove('hidden');
+    $('recSrc').textContent = src ? `録音中のタブ: ${src}` : '';
+    $('recState').textContent = '曲の再生を待っています…';
+  }
+  recTick(r) {
+    const s = Math.floor(r.elapsed);
+    $('recTime').textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+    $('recLevel').style.width = `${Math.round(r.level * 100)}%`;
+    $('recState').textContent = !r.heard ? '曲の再生を待っています…' : r.silentFor > 0.8 ? `静かになりました…(あと${Math.max(0, Math.ceil(4 - r.silentFor))}秒で自動で止まります)` : '録音しています';
+  }
+  recHide() { $('recPanel').classList.add('hidden'); }
+
   onCharacter(id) {
     document.querySelectorAll('.chara-card').forEach((b) => b.classList.toggle('active', b.dataset.id === id));
   }
@@ -113,6 +126,12 @@ export class UI {
       document.querySelectorAll('.tab-body section').forEach((s) => s.classList.toggle('active', s.dataset.pane === b.dataset.tab));
     });
     $('audioFile').onchange = (e) => { app.addAudioFiles([...e.target.files]); e.target.value = ''; };
+    // ほかのタブの音を録音
+    $('tabRecBtn').onclick = () => { $('recStep1').classList.remove('hidden'); $('recStep2').classList.add('hidden'); $('recPanel').classList.remove('hidden'); };
+    $('recClose').onclick = () => $('recPanel').classList.add('hidden');
+    $('recStart').onclick = () => app.startTabRecording($('recName').value.trim());
+    $('recStop').onclick = () => app.finishTabRecording();
+    $('recCancel').onclick = () => app.cancelTabRecording();
     $('vrmFile').onchange = (e) => { if (e.target.files[0]) app.loadVRMFile(e.target.files[0]); e.target.value = ''; };
     $('lyricFile').onchange = async (e) => { const f = e.target.files[0]; if (f) { const txt = await f.text(); $('lyricText').value = txt; app.setLyricsText(txt, f.name); } e.target.value = ''; };
     $('lyricApply').onclick = () => app.setLyricsText($('lyricText').value);

@@ -18,6 +18,7 @@ import { Rng } from './util/math.js';
 import { PALETTES } from './main-consts.js';
 import { CHARACTERS } from './characters.js';
 import { RhythmGame } from './game/rhythm.js';
+import { TabRecorder } from './audio/tabrecorder.js';
 import { loadDanceLibrary, composeMocap, makeIdleMocap, newFrame } from './dance/mocap.js';
 
 const BACK_POS = [[-2.5, -1.9], [2.5, -1.9], [-5.0, -3.4], [5.0, -3.4]];
@@ -216,22 +217,64 @@ class App {
   }
   setPalette(k) { this.paletteKey = k; this.applyPalette(); }
 
+  // 解析して曲リストに加える(ファイルでも録音でも共通)
+  async addAudioBuffer(audioBuf, name, artist = '読み込んだ曲') {
+    this.ui.loading('テンポ・拍・曲の構成を解析しています…', 0.1);
+    const an = await analyzeAudio(audioBuf, (p) => this.ui.loading(null, 0.1 + p * 0.85));
+    const rng = new Rng(Array.from(name).reduce((s, c) => s + c.charCodeAt(0), 0));
+    const pals = Object.values(PALETTES).filter(Boolean);
+    const data = { id: 'file-' + Date.now(), title: name, artist, buffer: audioBuf, ...an, lyrics: [], palette: { hues: rng.pick(pals) }, style: null };
+    this.songs.push({ id: data.id, title: name, artist, kind: 'file', data, hue: data.palette.hues[0] });
+    this.ui.renderSongList();
+    this.ui.toast(`解析完了: BPM ${an.bpm}・${an.sections.length}セクション`);
+    await this.selectSong(this.songs.length - 1);
+  }
+
+  // ---------------- ほかのタブの音を録音 ----------------
+  async startTabRecording(name) {
+    if (!TabRecorder.supported()) { this.ui.toast('このブラウザでは使えません(パソコンの Chrome / Edge で開いてください)', true); return; }
+    this.audio.pause(); this.ui.onPlayState();
+    this.recName = name;
+    this.tabRec = new TabRecorder();
+    try {
+      await this.tabRec.start({ onTick: (r) => this.ui.recTick(r), onAutoStop: () => this.finishTabRecording() });
+      this.ui.recShowLive(this.tabRec.label);
+    } catch (e) {
+      this.tabRec = null;
+      if (e && e.message === 'NO_AUDIO') this.ui.toast('音が共有されていません。「タブの音声も共有する」をオンにして選び直してください', true);
+      else if (e && e.name === 'NotAllowedError') this.ui.toast('共有がキャンセルされました');
+      else { console.error(e); this.ui.toast('録音を始められませんでした', true); }
+    }
+  }
+  async finishTabRecording() {
+    const rec = this.tabRec; if (!rec || this._finishing) return;
+    this._finishing = true;
+    rec.stop();
+    this.ui.recHide();
+    try {
+      this.ui.loading('録音した音を読み込んでいます…', 0.05);
+      this.audio.ensure();
+      const buf = await rec.toAudioBuffer(this.audio.ctx);
+      if (!buf || buf.duration < 5) { this.ui.loading(false); this.ui.toast('音がほとんど録音されていませんでした。曲を再生しながら録音してください', true); return; }
+      const title = this.recName || (rec.label || '').replace(/\s*[-|｜].*$/, '').trim() || `録音した曲 ${new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}`;
+      await this.addAudioBuffer(buf, title, 'タブから録音');
+    } catch (e) {
+      console.error(e); this.ui.loading(false); this.ui.toast('録音を読み込めませんでした', true);
+    } finally { this.tabRec = null; this._finishing = false; }
+  }
+  cancelTabRecording() {
+    if (this.tabRec) this.tabRec.cancel();
+    this.tabRec = null;
+    this.ui.recHide();
+  }
+
   async addAudioFiles(files) {
     for (const f of files) {
       try {
         this.ui.loading(`「${f.name}」を読み込んでいます…`, 0.05);
         const buf = await f.arrayBuffer();
         const audioBuf = await this.audio.decode(buf);
-        this.ui.loading('テンポ・拍・曲の構成を解析しています…', 0.1);
-        const an = await analyzeAudio(audioBuf, (p) => this.ui.loading(null, 0.1 + p * 0.85));
-        const name = f.name.replace(/\.[^.]+$/, '');
-        const rng = new Rng(Array.from(name).reduce((s, c) => s + c.charCodeAt(0), 0));
-        const pals = Object.values(PALETTES).filter(Boolean);
-        const data = { id: 'file-' + Date.now(), title: name, artist: '読み込んだ曲', buffer: audioBuf, ...an, lyrics: [], palette: { hues: rng.pick(pals) }, style: null };
-        this.songs.push({ id: data.id, title: name, artist: '読み込んだ曲', kind: 'file', data, hue: data.palette.hues[0] });
-        this.ui.renderSongList();
-        this.ui.toast(`解析完了: BPM ${an.bpm}・${an.sections.length}セクション`);
-        await this.selectSong(this.songs.length - 1);
+        await this.addAudioBuffer(audioBuf, f.name.replace(/\.[^.]+$/, ''));
       } catch (e) {
         console.error(e);
         this.ui.loading(false);

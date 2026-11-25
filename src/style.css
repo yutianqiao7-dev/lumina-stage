@@ -179,6 +179,17 @@ body.game-mode #hud .badges, body.game-mode #hud .top-right { display: none; }
 .res-table td:first-child { text-align: left; }
 .res-table td:last-child { text-align: right; }
 
+/* ---- タブの音の録音 ---- */
+.rec-box { max-width: min(560px, calc(100vw - 32px)); }
+.rec-steps { padding-left: 20px; line-height: 1.8; font-size: 14px; color: #e9e3ff; }
+.rec-steps b { color: #fff; }
+#recName { background: rgba(0, 0, 0, .35); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 8px; font-family: inherit; }
+.rec-live { display: flex; align-items: center; gap: 12px; font-family: var(--latin); font-weight: 800; font-size: 28px; margin: 8px 0 12px; }
+.rec-live #recState { font-family: var(--font); font-size: 14px; font-weight: 700; color: var(--dim); }
+.rec-dot { width: 16px; height: 16px; border-radius: 50%; background: #ff3b5c; box-shadow: 0 0 14px #ff3b5c; animation: blink 1s infinite; }
+.rec-meter { height: 10px; border-radius: 99px; background: rgba(255, 255, 255, .1); overflow: hidden; }
+#recLevel { height: 100%; width: 0; background: linear-gradient(90deg, #7dff9b, #ffd84a, #ff5fa8); transition: width .1s; }
+
 /* ---- ヘルプ・ドロップ・トースト ---- */
 #help { background: rgba(5, 4, 10, .6); backdrop-filter: blur(6px); z-index: 70; }
 .help-box { background: var(--glass-strong); border: 1px solid var(--line); border-radius: 20px; padding: 24px 28px; max-width: min(460px, calc(100vw - 32px)); }

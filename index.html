@@ -92,6 +92,7 @@
         <h3>曲リスト</h3>
         <div id="songList" class="list"></div>
         <label class="file-btn">🎵 曲ファイルを読み込む<input id="audioFile" type="file" accept="audio/*,.mp3,.wav,.ogg,.m4a,.flac" multiple hidden /></label>
+        <button id="tabRecBtn" class="sub-btn">🎙 ほかのタブの音を録音して読み込む</button>
         <p class="note">MP3などを読み込むと、テンポ・拍・曲の構成(Aメロ/サビなど)・盛り上がりを自動で解析して、振り付けと演出を作ります。Sunoで作った曲もそのまま使えます。</p>
         <label class="row"><input id="autoNext" type="checkbox" checked /> 曲が終わったら次の曲へ</label>
         <div id="analysis" class="analysis"></div>
@@ -200,6 +201,30 @@
     </div>
   </div>
   <button id="gameQuit" class="pill game-quit">✕ 音ゲーをやめる</button>
+
+  <!-- ほかのタブの音を録音 -->
+  <div id="recPanel" class="overlay hidden">
+    <div class="help-box rec-box">
+      <h2>🎙 ほかのタブの音を録音</h2>
+      <div id="recStep1">
+        <ol class="rec-steps">
+          <li>先に、別のタブで Suno などの曲のページを開いておく(まだ再生しない)</li>
+          <li>下の「録音を始める」→ 出てきた画面で <b>「Chrome タブ」</b> からそのタブを選び、<b>「タブの音声も共有する」をオン</b> にして「共有」</li>
+          <li>そのタブで曲を <b>最初から</b> 再生する(このアプリの音は止めておきます)</li>
+          <li>曲が終わって4秒静かになると、自動で止まって読み込みます</li>
+        </ol>
+        <label class="row">曲の名前 <input id="recName" type="text" placeholder="空なら共有したタブの名前" style="flex:1" /></label>
+        <p class="note">パソコンの Chrome / Edge で使えます。録音は自分で楽しむためだけに使ってください(Suno の無料プランの曲などは、公開する作品に入れないでください)。</p>
+        <div class="title-btns"><button id="recStart" class="big-btn game">録音を始める</button><button id="recClose" class="sub-btn" style="width:auto;padding:12px 24px">とじる</button></div>
+      </div>
+      <div id="recStep2" class="hidden">
+        <div class="rec-live"><span class="rec-dot"></span><span id="recTime">0:00</span><span id="recState">曲の再生を待っています…</span></div>
+        <div class="rec-meter"><div id="recLevel"></div></div>
+        <p class="note" id="recSrc"></p>
+        <div class="title-btns"><button id="recStop" class="big-btn">■ 止めて読み込む</button><button id="recCancel" class="sub-btn" style="width:auto;padding:12px 24px">やめる</button></div>
+      </div>
+    </div>
+  </div>
 
   <div id="drop" class="overlay hidden"><div class="drop-box">ここにドロップ<br /><small>VRM ・ 曲 ・ 歌詞</small></div></div>
   <div id="toast"></div>
