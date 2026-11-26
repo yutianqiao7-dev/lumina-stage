@@ -18,7 +18,7 @@ import { Rng } from './util/math.js';
 import { PALETTES } from './main-consts.js';
 import { CHARACTERS } from './characters.js';
 import { RhythmGame } from './game/rhythm.js';
-import { TabRecorder } from './audio/tabrecorder.js';
+import { TabRecorder, trimSilence } from './audio/tabrecorder.js';
 import { loadDanceLibrary, composeMocap, makeIdleMocap, newFrame } from './dance/mocap.js';
 
 const BACK_POS = [[-2.5, -1.9], [2.5, -1.9], [-5.0, -3.4], [5.0, -3.4]];
@@ -273,8 +273,14 @@ class App {
       try {
         this.ui.loading(`「${f.name}」を読み込んでいます…`, 0.05);
         const buf = await f.arrayBuffer();
-        const audioBuf = await this.audio.decode(buf);
-        await this.addAudioBuffer(audioBuf, f.name.replace(/\.[^.]+$/, ''));
+        let audioBuf;
+        try { audioBuf = await this.audio.decode(buf); }
+        catch (err) { throw new Error(/\.(mp4|mov)$/i.test(f.name) || f.type.startsWith('video/') ? 'この動画の音を読み込めませんでした' : '曲を読み込めませんでした'); }
+        // 画面録画の動画: 前後の無音を切る
+        const isVideo = f.type.startsWith('video/') || /\.(mp4|mov)$/i.test(f.name);
+        if (isVideo) audioBuf = trimSilence(this.audio.ctx, audioBuf);
+        const name = isVideo && /^(ScreenRecording|Screen_Recording|RPReplay|IMG_|画面収録|スクリーン)/i.test(f.name) ? `録画した曲 ${new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}` : f.name.replace(/\.[^.]+$/, '');
+        await this.addAudioBuffer(audioBuf, name, isVideo ? '画面録画から' : '読み込んだ曲');
       } catch (e) {
         console.error(e);
         this.ui.loading(false);

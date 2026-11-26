@@ -86,7 +86,7 @@ export class TabRecorder {
   }
 }
 
-function trimSilence(ctx, audio, threshold = 0.004, pad = 0.25) {
+export function trimSilence(ctx, audio, threshold = 0.004, pad = 0.25) {
   const n = audio.length, ch = audio.numberOfChannels, sr = audio.sampleRate;
   const data = [];
   for (let c = 0; c < ch; c++) data.push(audio.getChannelData(c));

@@ -176,7 +176,7 @@ export class UI {
       if (!files.length) return;
       if (!app.started) { $('title').classList.add('hidden'); app.audio.ensure(); await app.audio.ctx.resume(); app.started = true; }
       const vrm = files.find((f) => /\.vrm$/i.test(f.name));
-      const audio = files.filter((f) => /\.(mp3|wav|ogg|m4a|aac|flac|opus|webm)$/i.test(f.name) || f.type.startsWith('audio/'));
+      const audio = files.filter((f) => /\.(mp3|wav|ogg|m4a|aac|flac|opus|webm|mp4|mov)$/i.test(f.name) || f.type.startsWith('audio/') || f.type.startsWith('video/'));
       const lyr = files.find((f) => /\.(lrc|txt)$/i.test(f.name));
       if (vrm) await app.loadVRMFile(vrm);
       if (audio.length) await app.addAudioFiles(audio);

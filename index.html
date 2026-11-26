@@ -91,7 +91,8 @@
       <section data-pane="songs" class="active">
         <h3>曲リスト</h3>
         <div id="songList" class="list"></div>
-        <label class="file-btn">🎵 曲ファイルを読み込む<input id="audioFile" type="file" accept="audio/*,.mp3,.wav,.ogg,.m4a,.flac" multiple hidden /></label>
+        <label class="file-btn">🎵 曲ファイル・画面録画の動画を読み込む<input id="audioFile" type="file" accept="audio/*,video/*,.mp3,.wav,.ogg,.m4a,.flac,.mp4,.mov,.webm" multiple hidden /></label>
+        <p class="note"><b>スマホ</b>は、Suno の曲を流しながら<b>画面録画</b>(iPhone: コントロールセンターの「画面収録」/ Android: クイック設定の「スクリーンレコード」で「デバイスの音声」をオン)して、その動画をここで選べば音だけ取り込めます。前後の無音は自動で切ります。</p>
         <button id="tabRecBtn" class="sub-btn">🎙 ほかのタブの音を録音して読み込む</button>
         <p class="note">MP3などを読み込むと、テンポ・拍・曲の構成(Aメロ/サビなど)・盛り上がりを自動で解析して、振り付けと演出を作ります。Sunoで作った曲もそのまま使えます。</p>
         <label class="row"><input id="autoNext" type="checkbox" checked /> 曲が終わったら次の曲へ</label>
